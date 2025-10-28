@@ -31,11 +31,10 @@ impl App {
 
       thread::spawn(move || {
         loop {
+          let start = Instant::now();
           if quit_rx.try_recv().is_ok() { break; }
 
-
           if enabled.load(Ordering::Relaxed) {
-            let start = Instant::now();
             let period = Duration::from_secs_f64(1.0/speed.load(Ordering::Relaxed) as f64);
 
             let _ = enigo.button(Left, Click);
@@ -45,7 +44,7 @@ impl App {
             if !dt.is_zero() {
               thread::sleep(dt);
             }
-          }
+          } else { thread::sleep(Duration::from_millis(50)); }
         }
       });
     }
@@ -71,21 +70,6 @@ impl eframe::App for App {
     let mut enabled = self.enabled.load(Ordering::Relaxed);
     let enabled0 = enabled;
 
-    // menubar
-    egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-      egui::MenuBar::new().ui(ui, |ui| {
-        ui.menu_button("File", |ui| {
-          if ui.button("Quit").clicked() {
-            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-          }
-        });
-
-        ui.add_space(16.0);
-
-        egui::widgets::global_theme_preference_buttons(ui);
-      });
-    });
-
     // main page content
     egui::CentralPanel::default().show(ctx, |ui| {
       ui.horizontal(|ui| {
@@ -95,7 +79,7 @@ impl eframe::App for App {
       });
 
       enabled ^= ui
-        .add(egui::Button::new(if enabled { "stop" } else { "start---" }).selected(enabled))
+        .add(egui::Button::new(if enabled { "stop" } else { "start" }).selected(enabled))
         .clicked();
     });
 
