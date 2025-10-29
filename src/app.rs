@@ -2,65 +2,84 @@ use std::{
   sync::{
     Arc,
     atomic::{AtomicBool, AtomicU32, Ordering},
-    mpsc,
   },
   thread,
   time::{Duration, Instant},
 };
+
 use enigo::{Button::Left, Direction::Click, Enigo, Mouse, Settings};
+use global_hotkey::{
+  GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState::Pressed, hotkey::{Code, HotKey}
+};
 
 // variables for the app
 pub struct App {
   speed: Arc<AtomicU32>,
   enabled: Arc<AtomicBool>,
-  quit_tx: mpsc::Sender<()>,
+  _hk_manager: global_hotkey::GlobalHotKeyManager,
 }
 
 // first frame of the app (basically an inital template)
 impl App {
-  pub fn new() -> Self {
+  pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    let ctx = cc.egui_ctx.clone();
     let enabled = Arc::new(AtomicBool::new(false));
     let speed = Arc::new(AtomicU32::new(100));
 
-    let (quit_tx, quit_rx) = mpsc::channel();
+    let hk_manager = GlobalHotKeyManager::new().unwrap();
+    let hk = HotKey::new(None, Code::F6);
+    hk_manager.register(hk).unwrap();
+    let hk_rx = GlobalHotKeyEvent::receiver().clone();
+
     {
       let enabled = enabled.clone();
       let speed = speed.clone();
+      let ctx = ctx.clone();
 
       let mut enigo = Enigo::new(&Settings::default()).unwrap();
 
       thread::spawn(move || {
+        let mut last_speed = 100u32;
+        let mut period = Duration::new(0, 0);
+
         loop {
           let start = Instant::now();
-          if quit_rx.try_recv().is_ok() { break; }
+          let speed = speed.load(Ordering::Relaxed);
+          if speed != last_speed {
+            last_speed = speed;
+            period = Duration::from_secs_f64(1.0 / speed as f64);
+          }
 
-          if enabled.load(Ordering::Relaxed) {
-            let period = Duration::from_secs_f64(1.0/speed.load(Ordering::Relaxed) as f64);
+          for ev in hk_rx.try_iter() {
+            if ev.id == hk.id && ev.state == Pressed {
+              enabled.fetch_xor(true, std::sync::atomic::Ordering::Relaxed);
+              ctx.request_repaint();
+            }
+          }
 
+          let enabled0 = enabled.load(Ordering::Relaxed);
+          if enabled0 {
             let _ = enigo.button(Left, Click);
-
             let elapsed = start.elapsed();
             let dt = period.saturating_sub(elapsed);
-            if !dt.is_zero() {
-              thread::sleep(dt);
-            }
-          } else { thread::sleep(Duration::from_millis(50)); }
+            thread::sleep(dt);
+          } else {
+            thread::sleep(Duration::from_millis(50));
+          }
         }
       });
     }
-    Self { enabled, speed, quit_tx }
-  }
-}
 
-impl Drop for App {
-  fn drop(&mut self) {let _ = self.quit_tx.send(()); }
+    Self {
+      enabled,
+      speed,
+      _hk_manager: hk_manager,
+    }
+  }
 }
 
 // main app loop
 impl eframe::App for App {
-  // fn save(&mut self, storage: &mut dyn eframe::Storage) {
-  //   eframe::set_value(storage, eframe::APP_KEY, self);
-  // }
 
   fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
     // unpack vars
@@ -79,7 +98,10 @@ impl eframe::App for App {
       });
 
       enabled ^= ui
-        .add(egui::Button::new(if enabled { "stop" } else { "start" }).selected(enabled))
+        .add_enabled(
+          !enabled,
+          egui::Button::new(if enabled { "Stop (F6)" } else { "Start (F6)" }).selected(enabled),
+        )
         .clicked();
     });
 
@@ -101,7 +123,8 @@ impl eframe::App for App {
 fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
   ui.horizontal(|ui| {
     ui.spacing_mut().item_spacing.x = 0.0;
-    ui.label("Powered by ");
+    ui.hyperlink_to("Eklik ", "https://github.com/larkin1/eklik");
+    ui.label("powered by ");
     ui.hyperlink_to("egui", "https://github.com/emilk/egui");
     ui.label(" and ");
     ui.hyperlink_to(

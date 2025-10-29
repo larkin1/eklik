@@ -9,12 +9,13 @@ fn main() -> eframe::Result {
     viewport: egui::ViewportBuilder::default()
       .with_inner_size([290.0, 150.0])
       .with_min_inner_size([240.0, 100.0])
+      .with_max_inner_size([300.0, 200.0])
       .with_always_on_top(),
     ..Default::default()
   };
   eframe::run_native(
     "I got bored and made an autoclicker",
     native_options,
-    Box::new(|_| Ok(Box::new(app::App::new()))),
+    Box::new(|cc| Ok(Box::new(app::App::new(cc)))),
   )
 }
