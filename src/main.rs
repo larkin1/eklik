@@ -9,7 +9,7 @@ fn main() -> eframe::Result {
     viewport: egui::ViewportBuilder::default()
       .with_inner_size([215.0, 80.0])
       .with_min_inner_size([135.0, 75.0])
-      .with_max_inner_size([200.0, 100.0])
+      .with_max_inner_size([300.0, 100.0])
       .with_always_on_top(),
     ..Default::default()
   };
