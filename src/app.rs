@@ -40,7 +40,7 @@ impl App {
 
       thread::spawn(move || {
         let mut last_speed = 100u32;
-        let mut period = Duration::new(0, 0);
+        let mut period = Duration::new(0, 10000000);
 
         loop {
           let start = Instant::now();
@@ -62,7 +62,7 @@ impl App {
             let speed = speed.load(Ordering::Relaxed);
             if speed != last_speed {
               last_speed = speed;
-              period = Duration::from_secs_f64(1.0 / speed as f64);
+              period = Duration::from_secs_f64(if speed >= 1000 {0.0} else {1.0 / speed as f64});
             }
             thread::sleep(Duration::from_millis(50));
           }
