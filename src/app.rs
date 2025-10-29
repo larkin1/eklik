@@ -44,11 +44,6 @@ impl App {
 
         loop {
           let start = Instant::now();
-          let speed = speed.load(Ordering::Relaxed);
-          if speed != last_speed {
-            last_speed = speed;
-            period = Duration::from_secs_f64(1.0 / speed as f64);
-          }
 
           for ev in hk_rx.try_iter() {
             if ev.id == hk.id && ev.state == Pressed {
@@ -64,6 +59,11 @@ impl App {
             let dt = period.saturating_sub(elapsed);
             thread::sleep(dt);
           } else {
+            let speed = speed.load(Ordering::Relaxed);
+            if speed != last_speed {
+              last_speed = speed;
+              period = Duration::from_secs_f64(1.0 / speed as f64);
+            }
             thread::sleep(Duration::from_millis(50));
           }
         }
@@ -91,6 +91,7 @@ impl eframe::App for App {
 
     // main page content
     egui::CentralPanel::default().show(ctx, |ui| {
+      ui.add_enabled_ui(!enabled, |ui| {
       ui.horizontal(|ui| {
         ui.label("Speed:");
         ui.add(egui::DragValue::new(&mut speed).speed(1).range(1..=1000));
@@ -98,8 +99,7 @@ impl eframe::App for App {
       });
 
       enabled ^= ui
-        .add_enabled(
-          !enabled,
+        .add(
           egui::Button::new(if enabled { "Stop (F6)" } else { "Start (F6)" }).selected(enabled),
         )
         .clicked();
@@ -117,7 +117,7 @@ impl eframe::App for App {
     if enabled != enabled0 {
       self.enabled.store(enabled, Ordering::Relaxed);
     }
-  }
+  });}
 }
 
 fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
