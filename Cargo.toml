@@ -3,7 +3,7 @@ name = "eklik"
 version = "0.1.0"
 authors = ["Larkin <larkindunlop2@gmail.com>"]
 edition = "2024"
-include = ["LICENSE-APACHE", "LICENSE-MIT", "**/*.rs", "Cargo.toml"]
+include = ["**/*.rs", "Cargo.toml"]
 rust-version = "1.88"
 
 [package.metadata.docs.rs]
